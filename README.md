@@ -22,5 +22,7 @@ Additional supported flags are..
         use the given file as the body in the request
     -d/--data
         use the data as the body in the request (note that both of these attempt to guess a valid content-type)
+    -t/--timeout
+        pass an integer to request as a timeout in milliseconds
     -v   
         verbose. will console.log the arguments object before it sends the request.

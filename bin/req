@@ -111,6 +111,7 @@ if (headers) args.headers = headers;
 if (options) args.options = options;
 if (querystring) args.qs = querystring;
 if (body) args.body = body;
+if (argv.t) args.timeout = parseInt(argv.t, 10);
 args.method = method;
 args.uri = uri;
 if (argv.v) console.log(args);
