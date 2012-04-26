@@ -26,3 +26,5 @@ Additional supported flags are..
         pass an integer to request as a timeout in milliseconds
     -v   
         verbose. will console.log the arguments object before it sends the request.
+    -w
+        path to write output to

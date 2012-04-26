@@ -2,6 +2,7 @@
 var request = require('request'),
     fs = require('fs'),
     mime = require('mime'),
+    url = require('url'),
     argv = require('optimist')
         .alias('h', 'headers')
         .alias('f', 'file')
@@ -9,6 +10,7 @@ var request = require('request'),
         .alias('o', 'options')
         .alias('q', 'query')
         .alias('t', 'timeout')
+        .alias('w', 'write')
         .boolean('v')
         .argv,
     method,
@@ -106,12 +108,28 @@ if (argv.h) {
     }
 }
 
+function output(content, path) {
+    if (path) {
+        fs.writeFileSync(path, content);
+    } else {
+        console.log(content);
+    }
+}
+
+if (options) {
+    options.encoding = null;
+} else {
+    options = { encoding: null };
+}
+
 var args = {};
 if (headers) args.headers = headers;
-if (options) args.options = options;
 if (querystring) args.qs = querystring;
 if (body) args.body = body;
 if (argv.t) args.timeout = parseInt(argv.t, 10);
+Object.keys(options).forEach(function (key) {
+    args[key] = options[key];
+});
 args.method = method;
 args.uri = uri;
 if (argv.v) console.log(args);
@@ -120,9 +138,23 @@ request(args, function (err, res, body) {
         console.log(err);
     } else {
         if (body) {
-            console.log(body);
+            var ctype = res.headers['content-type'];
+            if (ctype.match(/^text|application\/json/)) {
+                output(body.toString(), argv.w);
+            } else {
+                var filename = argv.w ? argv.w : null;
+                if (!filename) {
+                    if (res.headers['content-disposition']) {
+                        filename = res.headers['content-disposition'].match(/filename=(.*)\s?/)[1];
+                    } else {
+                        var pathname = url.parse(uri).pathname.split('/');
+                        filename = pathname[pathname.length - 1];
+                    }
+                }
+                output(body, filename);
+            }
         } else {
-            console.log(res.headers);
+            output(res.headers, argv.w);
         }
     }
 });
