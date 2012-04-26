@@ -1,0 +1,19 @@
+{
+  "author": "Nathan LaFreniere <quitlahok@gmail.com>",
+  "name": "req",
+  "description": "a CLI for request",
+  "version": "0.0.1",
+  "homepage": "https://github.com/nathan-lafreniere/node-req",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/nathan-lafreniere/node-req.git"
+  },
+  bin: {
+    "req": "./bin/req"
+  },
+  "dependencies": {
+    "optimist": "0.3.1",
+    "request": "2.9.202",
+    "mime": "1.2.5"
+  },
+}

@@ -1,0 +1,126 @@
+#!/usr/bin/env node
+var request = require('request'),
+    fs = require('fs'),
+    mime = require('mime'),
+    argv = require('optimist')
+        .alias('h', 'headers')
+        .alias('f', 'file')
+        .alias('d', 'data')
+        .alias('o', 'options')
+        .alias('q', 'query')
+        .alias('t', 'timeout')
+        .argv,
+    method,
+    uri,
+    body,
+    headers,
+    options,
+    querystring,
+    usage = 'req: [method] uri';
+
+if (argv.d && argv.f) {
+    console.log('only specify file or data, not both'); 
+    process.exit(1);
+}
+
+if (argv._.length === 2) {
+    method = argv._[0].toUpperCase();
+    uri = argv._[1];
+} else if (argv._.length === 1) {
+    method = (argv.f || argv.d) ? 'POST' : 'GET';
+    uri = argv._[0];
+} else {
+    console.log(usage);
+    process.exit(1);
+}
+
+if (!uri.match(/^https?|ftp/)) {
+    uri = 'http://' + uri;
+}
+
+if (argv.d) {
+    headers = {};
+    try {
+        body = JSON.parse(argv.d);
+        headers['content-type'] = 'application/json';
+    } catch (err) {
+        body = argv.d;
+        headers['content-type'] = 'application/octet-stream';
+        console.log('WARNING: defaulting Content-Type header to application/octet-stream');
+    }
+} else if (argv.f) {
+    headers = {};
+    headers['content-type'] = mime.lookup(argv.f);
+    body = fs.readFileSync(argv.f);
+}
+
+if (argv.q) {
+    var a = [];
+    if (!(argv.q instanceof Array)) {
+       a.push(argv.q);
+    } else {
+       a = argv.q;
+    } 
+    if (!querystring) querystring = {};
+    for (var i = 0; i < a.length; i++) {
+        var type, data;
+        a[i] = a[i].replace(/=/, ':');
+        type = a[i].substring(0, a[i].indexOf(':'));
+        data = a[i].substring(a[i].indexOf(':') + 1);
+        querystring[type] = data;
+    }
+}
+
+if (argv.o) {
+    var a = [];
+    if (!(argv.o instanceof Array)) {
+       a.push(argv.o);
+    } else {
+       a = argv.o;
+    } 
+    if (!options) options = {};
+    for (var i = 0; i < a.length; i++) {
+        var type, data;
+        a[i] = a[i].replace(/=/, ':');
+        type = a[i].substring(0, a[i].indexOf(':'));
+        data = a[i].substring(a[i].indexOf(':') + 1);
+        options[type] = data;
+    }
+}
+
+if (argv.h) {
+    var a = [];
+    if (!(argv.h instanceof Array)) {
+       a.push(argv.h);
+    } else {
+       a = argv.h;
+    } 
+    if (!headers) headers = {};
+    for (var i = 0; i < a.length; i++) {
+        var type, data;
+        a[i] = a[i].replace(/=/, ':');
+        type = a[i].substring(0, a[i].indexOf(':'));
+        data = a[i].substring(a[i].indexOf(':') + 1);
+        headers[type] = data;
+    }
+}
+
+var args = {};
+if (headers) args.headers = headers;
+if (options) args.options = options;
+if (querystring) args.qs = querystring;
+if (body) args.body = body;
+args.method = method;
+args.uri = uri;
+console.log(args);
+/*request(args, function (err, res, body) {
+    if (err) {
+        console.log(err);
+    } else {
+        if (body) {
+            console.log(body);
+        } else {
+            console.log(res.headers);
+        }
+    }
+});*/
