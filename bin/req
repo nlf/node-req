@@ -9,6 +9,7 @@ var request = require('request'),
         .alias('o', 'options')
         .alias('q', 'query')
         .alias('t', 'timeout')
+        .boolean('v')
         .argv,
     method,
     uri,
@@ -112,8 +113,8 @@ if (querystring) args.qs = querystring;
 if (body) args.body = body;
 args.method = method;
 args.uri = uri;
-console.log(args);
-/*request(args, function (err, res, body) {
+if (argv.v) console.log(args);
+request(args, function (err, res, body) {
     if (err) {
         console.log(err);
     } else {
@@ -123,4 +124,4 @@ console.log(args);
             console.log(res.headers);
         }
     }
-});*/
+});
