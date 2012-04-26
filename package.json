@@ -8,7 +8,7 @@
     "type": "git",
     "url": "git://github.com/nathan-lafreniere/node-req.git"
   },
-  bin: {
+  "bin": {
     "req": "./bin/req"
   },
   "dependencies": {
