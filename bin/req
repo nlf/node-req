@@ -4,6 +4,7 @@ var request = require('request'),
     mime = require('mime'),
     url = require('url'),
     stream = require('stream'),
+    ProgressBar = require('progress'),
     argv = require('optimist')
         .alias('h', 'headers')
         .alias('f', 'file')
@@ -123,8 +124,10 @@ args.uri = uri;
 if (argv.v) console.log('REQUEST:', args);
 if (!options.encoding) args.encoding = null;
 
-function output(filename) {
+function output(filename, length) {
     var realout = filename ? fs.createWriteStream(filename) : process.stdout;
+    var bar;
+    if (length && realout !== process.stdout) bar = new ProgressBar(':bar :percent', { total: length, width: 25 });
     var writestream = new stream.Stream();
     writestream.writable = true;
     writestream.write = function (data) {
@@ -140,9 +143,13 @@ function output(filename) {
             data = jdata ? JSON.stringify(jdata, null, 2) : data;
             realout.write(data);
         }
+        if (bar) {
+            bar.tick(data.length);
+            if (bar.curr === bar.total) process.stdout.write('\n');
+        }
     }
     writestream.end = function (data) {
-        if (realout === process.stdout) realout.write('\n');
+        if (realout === process.stdout) process.stdout.write('\n');
     }
     return writestream;
 }
@@ -177,7 +184,7 @@ if (method === 'GET') {
                     if (res.headers['content-disposition']) {
                         filename = res.headers['content-disposition'].match(/filename="?(.*)?"?/)[1];
                     } else {
-                        var pathname = url.parse(uri).pathname.split('/');
+                        var pathname = url.parse(res.request.path).pathname.split('/');
                         filename = pathname[pathname.length - 1];
                     }
                     if (!filename) {
@@ -189,7 +196,7 @@ if (method === 'GET') {
             args.method = oldmethod;
             delete args.callback;
 
-            request(args).pipe(output(filename));
+            request(args).pipe(output(filename, parseInt(res.headers['content-length'], 10)));
         }
     });
 } else if (argv.f && (method === 'POST' || method === 'PUT')) {
