@@ -112,23 +112,15 @@ function findFilename(filename) {
 
 function output(filename, length) {
     filename = findFilename(filename);
-    console.log(filename);
     var realout = filename ? fs.createWriteStream(filename) : process.stdout;
     var bar;
-    if (length && realout !== process.stdout) bar = new ProgressBar(':bar :percent', { total: length, width: 25 });
+    if (length && !isNaN(length) && realout !== process.stdout) bar = new ProgressBar(':bar :percent', { total: length, width: 25 });
     var writestream = new stream.Stream();
     writestream.writable = true;
     writestream.write = function (data) {
-        var jdata;
         try {
-            jdata = JSON.parse(data);
+            console.log(JSON.parse(data.toString()));
         } catch (err) {
-            jdata = null;
-        }
-        if (realout === process.stdout) {
-            console.log(jdata);
-        } else {
-            data = jdata ? JSON.stringify(jdata, null, 2) : data;
             realout.write(data);
         }
         if (bar) {
