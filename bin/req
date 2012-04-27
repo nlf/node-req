@@ -4,6 +4,7 @@ var request = require('request'),
     mime = require('mime'),
     url = require('url'),
     stream = require('stream'),
+    path = require('path'),
     ProgressBar = require('progress'),
     argv = require('optimist')
         .alias('h', 'headers')
@@ -59,56 +60,26 @@ if (argv.d) {
     body = fs.readFileSync(argv.f);
 }
 
-if (argv.q) {
-    var a = [];
-    if (!(argv.q instanceof Array)) {
-       a.push(argv.q);
+function generateOpts(arg) {
+    var a = [],
+        obj = {};
+    if (!(arg instanceof Array)) {
+        a.push(arg);
     } else {
-       a = argv.q;
-    } 
-    if (!querystring) querystring = {};
+        a = arg;
+    }
     for (var i = 0; i < a.length; i++) {
         var type, data;
-        a[i] = a[i].replace(/=/, ':');
-        type = a[i].substring(0, a[i].indexOf(':'));
-        data = a[i].substring(a[i].indexOf(':') + 1);
-        querystring[type] = data;
+        type = a[i].substring(0, a[i].indexOf('='));
+        data = a[i].substring(a[i].indexOf('=') + 1);
+        obj[type] = data;
     }
+    return obj;
 }
 
-if (argv.o) {
-    var a = [];
-    if (!(argv.o instanceof Array)) {
-       a.push(argv.o);
-    } else {
-       a = argv.o;
-    } 
-    if (!options) options = {};
-    for (var i = 0; i < a.length; i++) {
-        var type, data;
-        a[i] = a[i].replace(/=/, ':');
-        type = a[i].substring(0, a[i].indexOf(':'));
-        data = a[i].substring(a[i].indexOf(':') + 1);
-        options[type] = data;
-    }
-}
-
-if (argv.h) {
-    var a = [];
-    if (!(argv.h instanceof Array)) {
-       a.push(argv.h);
-    } else {
-       a = argv.h;
-    } 
-    if (!headers) headers = {};
-    for (var i = 0; i < a.length; i++) {
-        var type, data;
-        a[i] = a[i].replace(/=/, ':');
-        type = a[i].substring(0, a[i].indexOf(':'));
-        data = a[i].substring(a[i].indexOf(':') + 1);
-        headers[type] = data;
-    }
-}
+if (argv.q) querystring = generateOpts(argv.q);
+if (argv.o) options = generateOpts(argv.o); 
+if (argv.h) headers = generateOpts(argv.h); 
 
 var args = {};
 if (headers) args.headers = headers;
@@ -124,7 +95,24 @@ args.uri = uri;
 if (argv.v) console.log('REQUEST:', args);
 if (!options.encoding) args.encoding = null;
 
+function findFilename(filename) {
+    if (path.existsSync(filename)) {
+        if (filename.match(/\.[0-9]*$/)) {
+            var v = filename.match(/\.([0-9]*)$/)[1];
+            v = parseInt(v, 10) + 1;
+            filename = filename.match(/(.*\.)[0-9]*$/)[1] + v;
+        } else {
+            filename = filename + '.1';
+        }
+        return findFilename(filename);
+    } else {
+        return filename;
+    }
+}
+
 function output(filename, length) {
+    filename = findFilename(filename);
+    console.log(filename);
     var realout = filename ? fs.createWriteStream(filename) : process.stdout;
     var bar;
     if (length && realout !== process.stdout) bar = new ProgressBar(':bar :percent', { total: length, width: 25 });
