@@ -96,7 +96,7 @@ if (argv.v) console.log('REQUEST:', args);
 if (!options.encoding) args.encoding = null;
 
 function findFilename(filename) {
-    if (path.existsSync(filename)) {
+    if (filename && path.existsSync(filename)) {
         if (filename.match(/\.[0-9]*$/)) {
             var v = filename.match(/\.([0-9]*)$/)[1];
             v = parseInt(v, 10) + 1;
@@ -119,7 +119,11 @@ function output(filename, length) {
     writestream.writable = true;
     writestream.write = function (data) {
         try {
-            console.log(JSON.parse(data.toString()));
+            if (realout === process.stdout) {
+                console.log(JSON.parse(data.toString()));
+            } else {
+                realout.write(data);
+            }
         } catch (err) {
             realout.write(data);
         }
