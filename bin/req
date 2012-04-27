@@ -3,6 +3,7 @@ var request = require('request'),
     fs = require('fs'),
     mime = require('mime'),
     url = require('url'),
+    stream = require('stream'),
     argv = require('optimist')
         .alias('h', 'headers')
         .alias('f', 'file')
@@ -108,14 +109,6 @@ if (argv.h) {
     }
 }
 
-function output(content, path) {
-    if (path) {
-        fs.writeFileSync(path, content);
-    } else {
-        console.log(content);
-    }
-}
-
 if (options) {
     options.encoding = null;
 } else {
@@ -132,29 +125,80 @@ Object.keys(options).forEach(function (key) {
 });
 args.method = method;
 args.uri = uri;
-if (argv.v) console.log(args);
-request(args, function (err, res, body) {
+if (argv.v) console.log('REQUEST:', args);
+
+function output(filename) {
+    var realout = filename ? fs.createWriteStream(filename) : process.stdout;
+    var writestream = new stream.Stream();
+    writestream.writable = true;
+    writestream.write = function (data) {
+        var jdata;
+        try {
+            jdata = JSON.parse(data);
+        } catch (err) {
+            jdata = null;
+        }
+        if (realout === process.stdout) {
+            console.log(jdata);
+        } else {
+            data = jdata ? JSON.stringify(jdata, null, 2) : data;
+            realout.write(data);
+        }
+    }
+    writestream.end = function (data) {
+        if (realout === process.stdout) realout.write('\n');
+    }
+    return writestream;
+}
+
+function defCallback(err, res, body) {
     if (err) {
         console.log(err);
+        process.exit(1);
     } else {
+        if (argv.v) console.log('RESPONSE:', res.headers);
         if (body) {
+            output(argv.w).write(body);
+        } else {
+            if (!argv.v) output(argv.w).write(JSON.stringify(res.headers));
+        }
+    }
+}
+
+if (method === 'GET') {
+    var oldmethod = args.method;
+    var filename = argv.w ? argv.w : null;
+    args.method = 'HEAD';
+    request(args, function (err, res, body) {
+        if (err) {
+            console.log(err);
+            process.exit(1);
+        } else {
+            if (argv.v) console.log('RESPONSE:', res.headers);
             var ctype = res.headers['content-type'];
-            if (ctype.match(/^text|application\/json/)) {
-                output(body.toString(), argv.w);
-            } else {
-                var filename = argv.w ? argv.w : null;
+            if (!ctype.match(/^text|application\/json/)) {
                 if (!filename) {
                     if (res.headers['content-disposition']) {
-                        filename = res.headers['content-disposition'].match(/filename=(.*)\s?/)[1];
+                        filename = res.headers['content-disposition'].match(/filename="?(.*)?"?/)[1];
                     } else {
                         var pathname = url.parse(uri).pathname.split('/');
                         filename = pathname[pathname.length - 1];
                     }
+                    if (!filename) {
+                        console.log('WARNING: could not determine filename, saving as "unknown"');
+                        filename = 'unknown';
+                    }
                 }
-                output(body, filename);
             }
-        } else {
-            output(res.headers, argv.w);
+            args.method = oldmethod;
+            delete args.callback;
+
+            request(args).pipe(output(filename));
         }
-    }
-});
+    });
+} else if (argv.f && (method === 'POST' || method === 'PUT')) {
+    var file = fs.createReadStream(argv.f);
+    file.pipe(request(args, defCallback));
+} else {
+    request(args, defCallback);
+}
