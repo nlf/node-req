@@ -109,23 +109,19 @@ if (argv.h) {
     }
 }
 
-if (options) {
-    options.encoding = null;
-} else {
-    options = { encoding: null };
-}
-
 var args = {};
 if (headers) args.headers = headers;
 if (querystring) args.qs = querystring;
 if (body) args.body = body;
 if (argv.t) args.timeout = parseInt(argv.t, 10);
+if (!options) options = {};
 Object.keys(options).forEach(function (key) {
     args[key] = options[key];
 });
 args.method = method;
 args.uri = uri;
 if (argv.v) console.log('REQUEST:', args);
+if (!options.encoding) args.encoding = null;
 
 function output(filename) {
     var realout = filename ? fs.createWriteStream(filename) : process.stdout;
