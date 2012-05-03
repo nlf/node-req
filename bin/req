@@ -6,6 +6,8 @@ var request = require('request'),
     stream = require('stream'),
     path = require('path'),
     ProgressBar = require('progress'),
+    prompt = require('prompt'),
+    async = require('async'),
     argv = require('optimist')
         .alias('h', 'headers')
         .alias('f', 'file')
@@ -22,6 +24,8 @@ var request = require('request'),
     headers,
     options,
     querystring,
+    username,
+    password,
     usage = 'req: [method] uri';
 
 if (argv.d && argv.f) {
@@ -92,8 +96,29 @@ Object.keys(options).forEach(function (key) {
 });
 args.method = method;
 args.uri = uri;
-if (argv.v) console.log('REQUEST:', args);
-if (!options.encoding) args.encoding = null;
+if (argv.u) username = argv.u;
+if (argv.p) password = argv.p;
+
+function genAuth(username, password, callback) {
+    if (username) {
+        var ouri = url.parse(uri);
+        if (password) {
+            ouri.auth = username + ':' + password;
+            uri = url.format(ouri);
+            callback(uri);
+        } else {
+            prompt.start();
+            prompt.get([{ name: 'password', hidden: true }], function (err, result) {
+                password = result.password;
+                ouri.auth = username + ':' + password;
+                uri = url.format(ouri);
+                callback(uri);
+            });
+        }
+    } else {
+        callback(uri);
+    }
+}
 
 function findFilename(filename) {
     if (filename && path.existsSync(filename)) {
@@ -111,7 +136,7 @@ function findFilename(filename) {
 }
 
 function output(filename, length) {
-    filename = findFilename(filename);
+    if (filename) filename = findFilename(filename);
     var realout = filename ? fs.createWriteStream(filename) : process.stdout;
     var bar;
     if (length && !isNaN(length) && realout !== process.stdout) bar = new ProgressBar(':bar :percent', { total: length, width: 25 });
@@ -139,6 +164,7 @@ function output(filename, length) {
 }
 
 function defCallback(err, res, body) {
+    console.log('callback', err, res, body);
     if (err) {
         console.log(err);
         process.exit(1);
@@ -152,40 +178,63 @@ function defCallback(err, res, body) {
     }
 }
 
-if (method === 'GET') {
-    var oldmethod = args.method;
-    var filename = argv.w ? argv.w : null;
-    args.method = 'HEAD';
-    request(args, function (err, res, body) {
-        if (err) {
-            console.log(err);
-            process.exit(1);
-        } else {
-            if (argv.v) console.log('RESPONSE:', res.headers);
-            var ctype = res.headers['content-type'];
-            if (!ctype.match(/^text|application\/json/)) {
-                if (!filename) {
-                    if (res.headers['content-disposition']) {
-                        filename = res.headers['content-disposition'].match(/filename="?(.*)?"?/)[1];
-                    } else {
-                        var pathname = url.parse(res.request.path).pathname.split('/');
-                        filename = pathname[pathname.length - 1];
+function makeRequest(uri) {
+    args.uri = uri;
+    if (argv.v) console.log('REQUEST:', args);
+    if (!args.encoding) args.encoding = null;
+    if (method === 'GET') {
+        var oldmethod = args.method;
+        var filename = argv.w ? argv.w : null;
+        args.method = 'HEAD';
+        request(args, function (err, res, body) {
+            if (err) {
+                console.log(err);
+                process.exit(1);
+            } else {
+                if (argv.v) console.log('RESPONSE:', res.headers);
+                if (res.headers['content-type']) {
+                    var ctype = res.headers['content-type'];
+                    if (!ctype.match(/^text|application\/json/)) {
+                        if (!filename) {
+                            if (res.headers['content-disposition']) {
+                                filename = res.headers['content-disposition'].match(/filename="?(.*)?"?/)[1];
+                            } else {
+                                var pathname = url.parse(res.request.path).pathname.split('/');
+                                filename = pathname[pathname.length - 1];
+                            }
+                            if (!filename) {
+                                console.log('WARNING: could not determine filename, saving as "unknown"');
+                                filename = 'unknown';
+                            }
+                        }
                     }
-                    if (!filename) {
-                        console.log('WARNING: could not determine filename, saving as "unknown"');
-                        filename = 'unknown';
+                    args.method = oldmethod;
+                    delete args.callback;
+                    request(args).pipe(output(filename, parseInt(res.headers['content-length'], 10)));
+                } else {
+                    if (res.headers['www-authenticate']) {
+                        if (res.headers['www-authenticate'].match(/Basic/)) {
+                            console.log('this site requires authentication');
+                            prompt.start();
+                            prompt.get(['username'], function (err, result) {
+                                username = result.username;
+                                args.method = oldmethod;
+                                delete args.callback;
+                                genAuth(username, password, makeRequest);
+                            });
+                        }
+                    } else {
+                        output(filename).write(res.headers);
                     }
                 }
             }
-            args.method = oldmethod;
-            delete args.callback;
-
-            request(args).pipe(output(filename, parseInt(res.headers['content-length'], 10)));
-        }
-    });
-} else if (argv.f && (method === 'POST' || method === 'PUT')) {
-    var file = fs.createReadStream(argv.f);
-    file.pipe(request(args, defCallback));
-} else {
-    request(args, defCallback);
+        });
+    } else if (argv.f && (method === 'POST' || method === 'PUT')) {
+        var file = fs.createReadStream(argv.f);
+        file.pipe(request(args, defCallback));
+    } else {
+        request(args, defCallback);
+    }
 }
+
+genAuth(username, password, makeRequest);
