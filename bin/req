@@ -26,6 +26,7 @@ var request = require('request'),
     querystring,
     username,
     password,
+    oldmethod,
     usage = 'req: [method] uri';
 
 if (argv.d && argv.f) {
@@ -51,17 +52,14 @@ if (!uri.match(/^https?|ftp/)) {
 if (argv.d) {
     headers = {};
     try {
-        body = JSON.parse(argv.d);
+        var test = JSON.parse(argv.d);
+        body = argv.d;
         headers['content-type'] = 'application/json';
     } catch (err) {
         body = argv.d;
         headers['content-type'] = 'application/octet-stream';
         console.log('WARNING: defaulting Content-Type header to application/octet-stream');
     }
-} else if (argv.f) {
-    headers = {};
-    headers['content-type'] = mime.lookup(argv.f);
-    body = fs.readFileSync(argv.f);
 }
 
 function generateOpts(arg) {
@@ -145,12 +143,16 @@ function output(filename, length) {
     writestream.write = function (data) {
         try {
             if (realout === process.stdout) {
-                console.log(JSON.parse(data.toString()));
+                if (typeof data === 'object' && !Buffer.isBuffer(data)) {
+                    console.log(data);
+                } else {
+                    console.log(JSON.parse(data.toString()));
+                }
             } else {
                 realout.write(data);
             }
         } catch (err) {
-            realout.write(data);
+            realout.write(JSON.stringify(data));
         }
         if (bar) {
             bar.tick(data.length);
@@ -164,16 +166,28 @@ function output(filename, length) {
 }
 
 function defCallback(err, res, body) {
-    console.log('callback', err, res, body);
     if (err) {
         console.log(err);
         process.exit(1);
     } else {
         if (argv.v) console.log('RESPONSE:', res.headers);
-        if (body) {
-            output(argv.w).write(body);
+        if (res.headers['www-authenticate']) {
+            if (res.headers['www-authenticate'].match(/Basic/)) {
+                console.log('this site requires authentication');
+                prompt.start();
+                prompt.get(['username'], function (err, result) {
+                    username = result.username;
+                    if (oldmethod) args.method = oldmethod;
+                    if (args.callback) delete args.callback;
+                    genAuth(username, password, makeRequest);
+                });
+            }
         } else {
-            if (!argv.v) output(argv.w).write(JSON.stringify(res.headers));
+            if (body) {
+                output(argv.w).write(body);
+            } else {
+                if (!argv.v) output(argv.w).write(JSON.stringify(res.headers));
+            }
         }
     }
 }
@@ -183,7 +197,7 @@ function makeRequest(uri) {
     if (argv.v) console.log('REQUEST:', args);
     if (!args.encoding) args.encoding = null;
     if (method === 'GET') {
-        var oldmethod = args.method;
+        oldmethod = args.method;
         var filename = argv.w ? argv.w : null;
         args.method = 'HEAD';
         request(args, function (err, res, body) {
@@ -192,7 +206,16 @@ function makeRequest(uri) {
                 process.exit(1);
             } else {
                 if (argv.v) console.log('RESPONSE:', res.headers);
-                if (res.headers['content-type']) {
+                if (res.headers['www-authenticate'] && res.headers['www-authenticate'].match(/Basic/)) {
+                    console.log('this site requires authentication');
+                    prompt.start();
+                    prompt.get(['username'], function (err, result) {
+                        username = result.username;
+                        if (oldmethod) args.method = oldmethod;
+                        if (args.callback) delete args.callback;
+                        genAuth(username, password, makeRequest);
+                    });
+                } else if (res.headers['content-type']) {
                     var ctype = res.headers['content-type'];
                     if (!ctype.match(/^text|application\/json/)) {
                         if (!filename) {
@@ -212,26 +235,15 @@ function makeRequest(uri) {
                     delete args.callback;
                     request(args).pipe(output(filename, parseInt(res.headers['content-length'], 10)));
                 } else {
-                    if (res.headers['www-authenticate']) {
-                        if (res.headers['www-authenticate'].match(/Basic/)) {
-                            console.log('this site requires authentication');
-                            prompt.start();
-                            prompt.get(['username'], function (err, result) {
-                                username = result.username;
-                                args.method = oldmethod;
-                                delete args.callback;
-                                genAuth(username, password, makeRequest);
-                            });
-                        }
-                    } else {
-                        output(filename).write(res.headers);
-                    }
+                    output(filename).write(res.headers);
                 }
             }
         });
     } else if (argv.f && (method === 'POST' || method === 'PUT')) {
-        var file = fs.createReadStream(argv.f);
-        file.pipe(request(args, defCallback));
+        fs.stat(argv.f, function (err, stat) {
+            args.headers = { 'content-length': stat.size };
+            fs.createReadStream(argv.f).pipe(request(args, defCallback));
+        });
     } else {
         request(args, defCallback);
     }
