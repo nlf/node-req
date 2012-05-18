@@ -145,6 +145,8 @@ function output(filename, length) {
             if (realout === process.stdout) {
                 if (typeof data === 'object' && !Buffer.isBuffer(data)) {
                     console.log(data);
+                } else if (Buffer.isBuffer(data)) {
+                    console.log(data.toString());
                 } else {
                     console.log(JSON.parse(data.toString()));
                 }
