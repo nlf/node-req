@@ -237,7 +237,8 @@ function makeRequest(uri) {
                     delete args.callback;
                     request(args).pipe(output(filename, parseInt(res.headers['content-length'], 10)));
                 } else {
-                    output(filename).write(res.headers);
+                    args.method = oldmethod;
+                    request(args, defCallback);
                 }
             }
         });
