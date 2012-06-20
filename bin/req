@@ -145,8 +145,6 @@ function output(filename, length) {
             if (realout === process.stdout) {
                 if (typeof data === 'object' && !Buffer.isBuffer(data)) {
                     console.log(data);
-                } else if (Buffer.isBuffer(data)) {
-                    console.log(data.toString());
                 } else {
                     console.log(JSON.parse(data.toString()));
                 }
@@ -219,7 +217,7 @@ function makeRequest(uri) {
                     });
                 } else if (res.headers['content-type']) {
                     var ctype = res.headers['content-type'];
-                    if (!ctype.match(/^text|application\/json/)) {
+                    if (!ctype.match(/^text.*|application\/json.*/)) {
                         if (!filename) {
                             if (res.headers['content-disposition']) {
                                 filename = res.headers['content-disposition'].match(/filename="?(.*)?"?/)[1];
