@@ -220,7 +220,7 @@ function makeRequest(uri) {
                     if (!ctype.match(/^text.*|application\/json.*/)) {
                         if (!filename) {
                             if (res.headers['content-disposition']) {
-                                filename = res.headers['content-disposition'].match(/filename="?(.*)?"?/)[1];
+                                filename = res.headers['content-disposition'].match(/filename="?([^"]*)"?/)[1];
                             } else {
                                 var pathname = url.parse(res.request.path).pathname.split('/');
                                 filename = pathname[pathname.length - 1];
