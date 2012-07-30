@@ -5,26 +5,17 @@ req is a very simple command line wrapper around Mikeal Roger's excellent [reque
 
 Usage:
 
-    req [method] uri
+    Usage: req [options] [method] uri
 
+    Methods:
+      Any valid HTTP method is supported. If unspecified, GET will be used.
 
-Method is optional and will default to GET if not specified. URI is required (obviously).
-
-Additional supported flags are..
-
-    -h/--headers
-        add the given header to the object passed to request, ie: -h content-type=text/plain
-    -o/--options
-        add the given option to the object passed to request, ie: -o encoding=binary
-    -q/--query
-        add the given query to the querystring object passed to request, ie: -q search=turtles
-    -f/--file
-        use the given file as the body in the request
-    -d/--data
-        use the data as the body in the request (note that both of these attempt to guess a valid content-type)
-    -t/--timeout
-        pass an integer to request as a timeout in milliseconds
-    -v   
-        verbose. will console.log the arguments object before it sends the request.
-    -w
-        path to write output to
+    Options:
+      -h, --headers      Headers to attach to the request in the form header=value                                                                                                                  
+      -q, --querystring  Querystring parameters in the form param=value (these can also be passed as part of the URI)                                                                               
+      -b, --body         The body of the request. If this is set to valid json, it will automatically set the json content-type. Can also attach the contents of the file using e.g. @uploadthis.txt
+      -o, --output       File to write output to, otherwise will print text and json to screen and guess a filename for binaries                                                                    
+      -u, --username     Username for basic auth                                                                                                                                                    
+      -p, --password     Password for basic auth                                                                                                                                                    
+      -f, --form         Similar to the body flag, but sends the data as x-www-formurlencoded                                                                                                       
+      -v, --verbose      Output response headers and status codes   
