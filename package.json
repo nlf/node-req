@@ -2,11 +2,11 @@
   "author": "Nathan LaFreniere <quitlahok@gmail.com>",
   "name": "req",
   "description": "a CLI for request",
-  "version": "0.1.3",
-  "homepage": "https://github.com/nathan-lafreniere/node-req",
+  "version": "0.1.4",
+  "homepage": "https://github.com/nlf/node-req",
   "repository": {
     "type": "git",
-    "url": "git://github.com/nathan-lafreniere/node-req.git"
+    "url": "git://github.com/nlf/node-req.git"
   },
   "bin": {
     "req": "./bin/req"
